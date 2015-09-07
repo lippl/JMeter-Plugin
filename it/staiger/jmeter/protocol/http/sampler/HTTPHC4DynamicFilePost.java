@@ -1,19 +1,6 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * @@@LICENSE
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * 
  */
 
 package it.staiger.jmeter.protocol.http.sampler;
@@ -37,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.security.auth.Subject;
 
-import it.staiger.jmeter.protocol.http.sampler.DynamicMultiPartHttp;
+import it.staiger.jmeter.protocol.http.sampler.DynamicHttpPostSampler;
 import it.staiger.jmeter.protocol.http.util.VariableFileArg;
 import it.staiger.jmeter.services.FileContentServer;
 
@@ -60,7 +47,6 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.HttpRequestRetryHandler;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -86,7 +72,6 @@ import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.SystemDefaultDnsResolver;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.CoreConnectionPNames;
-import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.DefaultedHttpParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.SyncBasicHttpParams;
@@ -101,7 +86,6 @@ import org.apache.jmeter.protocol.http.sampler.HttpClientDefaultParameters;
 import org.apache.jmeter.protocol.http.control.AuthManager;
 import org.apache.jmeter.protocol.http.control.CacheManager;
 import org.apache.jmeter.protocol.http.control.CookieManager;
-import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.util.HC4TrustAllSSLSocketFactory;
 import org.apache.jmeter.protocol.http.util.HTTPArgument;
 import org.apache.jmeter.protocol.http.util.HTTPConstants;
@@ -109,7 +93,6 @@ import org.apache.jmeter.protocol.http.util.HTTPFileArg;
 import org.apache.jmeter.protocol.http.util.SlowHC4SSLSocketFactory;
 import org.apache.jmeter.protocol.http.util.SlowHC4SocketFactory;
 import org.apache.jmeter.samplers.SampleResult;
-import org.apache.jmeter.testelement.property.CollectionProperty;
 import org.apache.jmeter.testelement.property.PropertyIterator;
 import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jmeter.util.JsseSSLManager;
@@ -121,7 +104,7 @@ import org.apache.log.Logger;
  * HTTP Sampler using Apache HttpClient 4.x.
  *
  */
-public class HTTPHC4DynFiles extends HTTPHC4Impl {
+public class HTTPHC4DynamicFilePost extends HTTPHC4Impl {
 
     private static final Logger log = LoggingManager.getLoggerForClass();
 
@@ -133,7 +116,7 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
 
     private static final String CONTEXT_METRICS = "jmeter_metrics"; // TODO hack for metrics related to HTTPCLIENT-1081, to be removed later
 
-    protected final DynamicMultiPartHttp testElement;
+    protected final DynamicHttpPostSampler testElement;
     
     private static final ConnectionKeepAliveStrategy IDLE_STRATEGY = new DefaultConnectionKeepAliveStrategy(){
         @Override
@@ -249,22 +232,9 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
         super(testElement);
     }
 */
-    protected HTTPHC4DynFiles(DynamicMultiPartHttp testElement) {
+    protected HTTPHC4DynamicFilePost(DynamicHttpPostSampler testElement) {
         super((HTTPSamplerBase) testElement);
     	this.testElement=testElement;
-    }
-
-    public static final class HttpDelete extends HttpEntityEnclosingRequestBase {
-
-        public HttpDelete(final URI uri) {
-            super();
-            setURI(uri);
-        }
-
-        @Override
-        public String getMethod() {
-            return HTTPConstants.DELETE;
-        }
     }
     
     @Override
@@ -318,73 +288,8 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
             HttpResponse httpResponse = 
                     executeRequest(httpClient, httpRequest, localContext, url);
 
-            // Needs to be done after execute to pick up all the headers
-            final HttpRequest request = (HttpRequest) localContext.getAttribute(ExecutionContext.HTTP_REQUEST);
-            // We've finished with the request, so we can add the LocalAddress to it for display
-            final InetAddress localAddr = (InetAddress) httpRequest.getParams().getParameter(ConnRoutePNames.LOCAL_ADDRESS);
-            if (localAddr != null) {
-                request.addHeader(HEADER_LOCAL_ADDRESS, localAddr.toString());
-            }
-            res.setRequestHeaders(getConnectionHeaders(request));
-
-            Header contentType = httpResponse.getLastHeader(HTTPConstants.HEADER_CONTENT_TYPE);
-            if (contentType != null){
-                String ct = contentType.getValue();
-                res.setContentType(ct);
-                res.setEncodingAndType(ct);                    
-            }
-            HttpEntity entity = httpResponse.getEntity();
-            if (entity != null) {
-                InputStream instream = entity.getContent();
-                res.setResponseData(readResponse(res, instream, (int) entity.getContentLength()));
-            }
-            
-            res.sampleEnd(); // Done with the sampling proper.
-            currentRequest = null;
-
-            // Now collect the results into the HTTPSampleResult:
-            StatusLine statusLine = httpResponse.getStatusLine();
-            int statusCode = statusLine.getStatusCode();
-            res.setResponseCode(Integer.toString(statusCode));
-            res.setResponseMessage(statusLine.getReasonPhrase());
-            res.setSuccessful(isSuccessCode(statusCode));
-
-            res.setResponseHeaders(getResponseHeaders(httpResponse));
-            if (res.isRedirect()) {
-                final Header headerLocation = httpResponse.getLastHeader(HTTPConstants.HEADER_LOCATION);
-                if (headerLocation == null) { // HTTP protocol violation, but avoids NPE
-                    throw new IllegalArgumentException("Missing location header in redirect for " + httpRequest.getRequestLine());
-                }
-                String redirectLocation = headerLocation.getValue();
-                res.setRedirectLocation(redirectLocation);
-            }
-
-            // record some sizes to allow HTTPSampleResult.getBytes() with different options
-            HttpConnectionMetrics  metrics = (HttpConnectionMetrics) localContext.getAttribute(CONTEXT_METRICS);
-            long headerBytes = 
-                res.getResponseHeaders().length()   // condensed length (without \r)
-              + httpResponse.getAllHeaders().length // Add \r for each header
-              + 1 // Add \r for initial header
-              + 2; // final \r\n before data
-            long totalBytes = metrics.getReceivedBytesCount();
-            res.setHeadersSize((int) headerBytes);
-            res.setBodySize((int)(totalBytes - headerBytes));
-            if (log.isDebugEnabled()) {
-                log.debug("ResponseHeadersSize=" + res.getHeadersSize() + " Content-Length=" + res.getBodySize()
-                        + " Total=" + (res.getHeadersSize() + res.getBodySize()));
-            }
-
-            // If we redirected automatically, the URL may have changed
-            if (getAutoRedirects()){
-                HttpUriRequest req = (HttpUriRequest) localContext.getAttribute(ExecutionContext.HTTP_REQUEST);
-                HttpHost target = (HttpHost) localContext.getAttribute(ExecutionContext.HTTP_TARGET_HOST);
-                URI redirectURI = req.getURI();
-                if (redirectURI.isAbsolute()){
-                    res.setURL(redirectURI.toURL());
-                } else {
-                    res.setURL(new URL(new URL(target.toURI()),redirectURI.toString()));
-                }
-            }
+            // parse response and fill the SampleResult with all info
+            parseResponse(httpRequest, localContext, res, httpResponse);
 
             // Store any cookies received in the cookie manager:
             saveConnectionCookies(httpResponse, res.getURL(), getCookieManager());
@@ -419,24 +324,6 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
         } finally {
             currentRequest = null;
         }
-        return res;
-    }
-
-    /**
-     * Create HTTPSampleResult filling url, method and SampleLabel.
-     * Monitor field is computed calling isMonitor()
-     * @param url URL
-     * @param method HTTP Method
-     * @return {@link HTTPSampleResult}
-     */
-    protected HTTPSampleResult createSampleResult(URL url, String method) {
-        HTTPSampleResult res = new HTTPSampleResult();
-        res.setMonitor(isMonitor());
-
-        res.setSampleLabel(url.toString()); // May be replaced later
-        res.setHTTPMethod(method);
-        res.setURL(url);
-        
         return res;
     }
 
@@ -688,82 +575,6 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
         return httpClient;
     }
 
-    /**
-     * Setup following elements on httpRequest:
-     * <ul>
-     * <li>ConnRoutePNames.LOCAL_ADDRESS enabling IP-SPOOFING</li>
-     * <li>Socket and connection timeout</li>
-     * <li>Redirect handling</li>
-     * <li>Keep Alive header or Connection Close</li>
-     * <li>Calls setConnectionHeaders to setup headers</li>
-     * <li>Calls setConnectionCookie to setup Cookie</li>
-     * </ul>
-     * 
-     * @param url
-     *            {@link URL} of the request
-     * @param httpRequest
-     *            http request for the request
-     * @param res
-     *            sample result to set cookies on
-     * @throws IOException
-     *             if hostname/ip to use could not be figured out
-     */
-    protected void setupRequest(URL url, HttpRequestBase httpRequest, HTTPSampleResult res)
-        throws IOException {
-
-    HttpParams requestParams = httpRequest.getParams();
-    
-    // Set up the local address if one exists
-    final InetAddress inetAddr = getIpSourceAddress();
-    if (inetAddr != null) {// Use special field ip source address (for pseudo 'ip spoofing')
-        requestParams.setParameter(ConnRoutePNames.LOCAL_ADDRESS, inetAddr);
-    } else if (localAddress != null){
-        requestParams.setParameter(ConnRoutePNames.LOCAL_ADDRESS, localAddress);
-    } else { // reset in case was set previously
-        requestParams.removeParameter(ConnRoutePNames.LOCAL_ADDRESS);
-    }
-
-    int rto = getResponseTimeout();
-    if (rto > 0){
-        requestParams.setIntParameter(CoreConnectionPNames.SO_TIMEOUT, rto);
-    }
-
-    int cto = getConnectTimeout();
-    if (cto > 0){
-        requestParams.setIntParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, cto);
-    }
-
-    requestParams.setBooleanParameter(ClientPNames.HANDLE_REDIRECTS, getAutoRedirects());
-    
-    // a well-behaved browser is supposed to send 'Connection: close'
-    // with the last request to an HTTP server. Instead, most browsers
-    // leave it to the server to close the connection after their
-    // timeout period. Leave it to the JMeter user to decide.
-    if (getUseKeepAlive()) {
-        httpRequest.setHeader(HTTPConstants.HEADER_CONNECTION, HTTPConstants.KEEP_ALIVE);
-    } else {
-        httpRequest.setHeader(HTTPConstants.HEADER_CONNECTION, HTTPConstants.CONNECTION_CLOSE);
-    }
-
-    setConnectionHeaders(httpRequest, url, getHeaderManager(), getCacheManager());
-
-    String cookies = setConnectionCookie(httpRequest, url, getCookieManager());
-
-    if (res != null) {
-        res.setCookies(cookies);
-    }
-
-}
-
-    
-    /**
-     * Set any default request headers to include
-     *
-     * @param request the HttpRequest to be used
-     */
-    protected void setDefaultRequestHeaders(HttpRequest request) {
-     // Method left empty here, but allows subclasses to override
-    }
 
     /**
      * Gets the ResponseHeaders
@@ -785,75 +596,6 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
             headerBuf.append("\n"); // $NON-NLS-1$
         }
         return headerBuf.toString();
-    }
-
-    /**
-     * Extracts all the required cookies for that particular URL request and
-     * sets them in the <code>HttpMethod</code> passed in.
-     *
-     * @param request <code>HttpRequest</code> for the request
-     * @param url <code>URL</code> of the request
-     * @param cookieManager the <code>CookieManager</code> containing all the cookies
-     * @return a String containing the cookie details (for the response)
-     * May be null
-     */
-    protected String setConnectionCookie(HttpRequest request, URL url, CookieManager cookieManager) {
-        String cookieHeader = null;
-        if (cookieManager != null) {
-            cookieHeader = cookieManager.getCookieHeaderForURL(url);
-            if (cookieHeader != null) {
-                request.setHeader(HTTPConstants.HEADER_COOKIE, cookieHeader);
-            }
-        }
-        return cookieHeader;
-    }
-    
-    /**
-     * Extracts all the required non-cookie headers for that particular URL request and
-     * sets them in the <code>HttpMethod</code> passed in
-     *
-     * @param request
-     *            <code>HttpRequest</code> which represents the request
-     * @param url
-     *            <code>URL</code> of the URL request
-     * @param headerManager
-     *            the <code>HeaderManager</code> containing all the cookies
-     *            for this <code>UrlConfig</code>
-     * @param cacheManager the CacheManager (may be null)
-     */
-    protected void setConnectionHeaders(HttpRequestBase request, URL url, HeaderManager headerManager, CacheManager cacheManager) {
-        if (headerManager != null) {
-            CollectionProperty headers = headerManager.getHeaders();
-            if (headers != null) {
-                PropertyIterator i = headers.iterator();
-                while (i.hasNext()) {
-                    org.apache.jmeter.protocol.http.control.Header header
-                    = (org.apache.jmeter.protocol.http.control.Header)
-                       i.next().getObjectValue();
-                    String n = header.getName();
-                    // Don't allow override of Content-Length
-                    // TODO - what other headers are not allowed?
-                    if (! HTTPConstants.HEADER_CONTENT_LENGTH.equalsIgnoreCase(n)){
-                        String v = header.getValue();
-                        if (HTTPConstants.HEADER_HOST.equalsIgnoreCase(n)) {
-                            int port = url.getPort();
-                            v = v.replaceFirst(":\\d+$",""); // remove any port specification // $NON-NLS-1$ $NON-NLS-2$
-                            if (port != -1) {
-                                if (port == url.getDefaultPort()) {
-                                    port = -1; // no need to specify the port if it is the default
-                                }
-                            }
-                            request.getParams().setParameter(ClientPNames.VIRTUAL_HOST, new HttpHost(v, port));
-                        } else {
-                            request.addHeader(n, v);
-                        }
-                    }
-                }
-            }
-        }
-        if (cacheManager != null){
-            cacheManager.setHeaders(url, request);
-        }
     }
 
     /**
@@ -933,7 +675,6 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
         }
     }
     
-    // TODO needs cleaning up
     /**
      * 
      * @param post {@link HttpPost}
@@ -983,7 +724,7 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
            hasContent = true;
         }
         /*
-         * get Arguments controlled by threshold
+         * set parameters controlled by threshold
          */
         if(!testElement.getArgumentThreshold() || thresholdCheck){
 	        args = testElement.getOwnArguments().iterator();
@@ -1011,7 +752,7 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
 	        for (i=0; i < staticFiles.length; i++) { 
 	        	HTTPFileArg file = staticFiles[i];
 	            
-	            viewableByteBodies[i] = new ViewableByteBody(contentServer.getResolvedFile(file.getPath()), file.getMimeType(), new File(file.getPath()).getName());
+	            viewableByteBodies[i] = new ViewableByteBody(contentServer.getFileContent(file.getPath()), file.getMimeType(), new File(file.getPath()).getName());
 	            multiPart.addPart(file.getParamName(),viewableByteBodies[i]);
 	            hasContent = true;
 	        }
@@ -1021,7 +762,7 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
 
     		attachmentsNumber = testElement.getAttachmentNumbers().split(",");
 	        
-	        for (int j=0; j < attachmentsNumber.length; i++, j++) {
+	        for (int j=0; j < attachmentsNumber.length && !attachmentsNumber[j].isEmpty(); i++, j++) {
 	        	int fileNum = Integer.parseInt(attachmentsNumber[j])-1;
 	        	if(fileNum >= dynFiles.length){
 	        		log.warn("trying to send file out of dynamic files range (" + Integer.toString(fileNum+1) + " of " + Integer.toString(dynFiles.length) + ")\nfile was skipped");
@@ -1030,7 +771,7 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
 	        	}
 	        	HTTPFileArg file = dynFiles[fileNum];
 
-	            viewableByteBodies[i] = new ViewableByteBody(contentServer.getResolvedFile(file.getPath()), file.getMimeType(), new File(file.getPath()).getName());
+	            viewableByteBodies[i] = new ViewableByteBody(contentServer.getFileContent(file.getPath()), file.getMimeType(), new File(file.getPath()).getName());
 	            multiPart.addPart(file.getParamName(),viewableByteBodies[i]);
 	            hasContent = true;
 	        }
@@ -1082,6 +823,88 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
         
         return	postedBody.toString();
     }
+    
+    /**
+     * Parses the result and fills the SampleResult with its info
+     * @param httpRequest the executed request
+     * @param localContext the Http context which was used
+     * @param res the SampleResult which is to be filled
+     * @param httpResponse the response which is to be parsed
+     * @throws IllegalStateException
+     * @throws IOException
+     */
+    private void parseResponse(HttpRequestBase httpRequest, HttpContext localContext, HTTPSampleResult res, HttpResponse httpResponse) throws IllegalStateException, IOException{
+    	
+    	// Needs to be done after execute to pick up all the headers
+        final HttpRequest request = (HttpRequest) localContext.getAttribute(ExecutionContext.HTTP_REQUEST);
+        // We've finished with the request, so we can add the LocalAddress to it for display
+        final InetAddress localAddr = (InetAddress) httpRequest.getParams().getParameter(ConnRoutePNames.LOCAL_ADDRESS);
+        if (localAddr != null) {
+            request.addHeader(HEADER_LOCAL_ADDRESS, localAddr.toString());
+        }
+        res.setRequestHeaders(getConnectionHeaders(request));
+
+        Header contentType = httpResponse.getLastHeader(HTTPConstants.HEADER_CONTENT_TYPE);
+        if (contentType != null){
+            String ct = contentType.getValue();
+            res.setContentType(ct);
+            res.setEncodingAndType(ct);                    
+        }
+        HttpEntity entity = httpResponse.getEntity();
+        if (entity != null) {
+            InputStream instream = entity.getContent();
+            res.setResponseData(readResponse(res, instream, (int) entity.getContentLength()));
+        }
+        
+        res.sampleEnd(); // Done with the sampling proper.
+        currentRequest = null;
+
+        // Now collect the results into the HTTPSampleResult:
+        StatusLine statusLine = httpResponse.getStatusLine();
+        int statusCode = statusLine.getStatusCode();
+        res.setResponseCode(Integer.toString(statusCode));
+        res.setResponseMessage(statusLine.getReasonPhrase());
+        res.setSuccessful(isSuccessCode(statusCode));
+
+        res.setResponseHeaders(getResponseHeaders(httpResponse));
+        if (res.isRedirect()) {
+            final Header headerLocation = httpResponse.getLastHeader(HTTPConstants.HEADER_LOCATION);
+            if (headerLocation == null) { // HTTP protocol violation, but avoids NPE
+                throw new IllegalArgumentException("Missing location header in redirect for " + httpRequest.getRequestLine());
+            }
+            String redirectLocation = headerLocation.getValue();
+            res.setRedirectLocation(redirectLocation);
+        }
+
+        // record some sizes to allow HTTPSampleResult.getBytes() with different options
+        HttpConnectionMetrics  metrics = (HttpConnectionMetrics) localContext.getAttribute(CONTEXT_METRICS);
+        long headerBytes = 
+            res.getResponseHeaders().length()   // condensed length (without \r)
+          + httpResponse.getAllHeaders().length // Add \r for each header
+          + 1 // Add \r for initial header
+          + 2; // final \r\n before data
+        long totalBytes = metrics.getReceivedBytesCount();
+        res.setHeadersSize((int) headerBytes);
+        res.setBodySize((int)(totalBytes - headerBytes));
+        if (log.isDebugEnabled()) {
+            log.debug("ResponseHeadersSize=" + res.getHeadersSize() + " Content-Length=" + res.getBodySize()
+                    + " Total=" + (res.getHeadersSize() + res.getBodySize()));
+        }
+
+        // If we redirected automatically, the URL may have changed
+        if (getAutoRedirects()){
+            HttpUriRequest req = (HttpUriRequest) localContext.getAttribute(ExecutionContext.HTTP_REQUEST);
+            HttpHost target = (HttpHost) localContext.getAttribute(ExecutionContext.HTTP_TARGET_HOST);
+            URI redirectURI = req.getURI();
+            if (redirectURI.isAbsolute()){
+                res.setURL(redirectURI.toURL());
+            } else {
+                res.setURL(new URL(new URL(target.toURI()),redirectURI.toString()));
+            }
+        }
+    }
+    
+    
 
     /**
      * 
@@ -1104,53 +927,12 @@ public class HTTPHC4DynFiles extends HTTPHC4Impl {
         }
     }
 
-    /**
-     * If contentEncoding is not set by user, then Platform encoding will be used to convert to String
-     * @param putParams {@link HttpParams}
-     * @return String charset
-     */
-    protected String getCharsetWithDefault(HttpParams putParams) {
-        String charset =(String) putParams.getParameter(CoreProtocolPNames.HTTP_CONTENT_CHARSET);
-        if(StringUtils.isEmpty(charset)) {
-            charset = Charset.defaultCharset().name();
-        }
-        return charset;
-    }
-
     private void saveConnectionCookies(HttpResponse method, URL u, CookieManager cookieManager) {
         if (cookieManager != null) {
             Header[] hdrs = method.getHeaders(HTTPConstants.HEADER_SET_COOKIE);
             for (Header hdr : hdrs) {
                 cookieManager.addCookieFromHeader(hdr.getValue(),u);
             }
-        }
-    }
-
-    @Override
-    protected void notifyFirstSampleAfterLoopRestart() {
-        log.debug("notifyFirstSampleAfterLoopRestart");
-        resetSSLContext = !USE_CACHED_SSL_CONTEXT;
-    }
-
-    @Override
-    protected void threadFinished() {
-        log.debug("Thread Finished");
-        closeThreadLocalConnections();
-    }
-
-    /**
-     * 
-     */
-    private void closeThreadLocalConnections() {
-        // Does not need to be synchronised, as all access is from same thread
-        Map<HttpClientKey, HttpClient> mapHttpClientPerHttpClientKey = HTTPCLIENTS_CACHE_PER_THREAD_AND_HTTPCLIENTKEY.get();
-        if ( mapHttpClientPerHttpClientKey != null ) {
-            for ( HttpClient cl : mapHttpClientPerHttpClientKey.values() ) {
-                ((AbstractHttpClient) cl).clearRequestInterceptors(); 
-                ((AbstractHttpClient) cl).clearResponseInterceptors(); 
-                cl.getConnectionManager().shutdown();
-            }
-            mapHttpClientPerHttpClientKey.clear();
         }
     }
 

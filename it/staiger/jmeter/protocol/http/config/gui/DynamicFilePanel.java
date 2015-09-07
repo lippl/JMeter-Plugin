@@ -1,29 +1,15 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @@@LICENSE
  *
  */
 
 package it.staiger.jmeter.protocol.http.config.gui;
 
 import it.staiger.jmeter.protocol.http.config.DynamicFiles;
-import it.staiger.jmeter.protocol.http.sampler.DynamicMultiPartHttp;
+import it.staiger.jmeter.protocol.http.sampler.DynamicHttpPostSampler;
+import it.staiger.jmeter.util.gui.StaigerUtils;
 
 import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -35,7 +21,6 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -46,6 +31,7 @@ import javax.swing.table.TableCellEditor;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.config.gui.AbstractConfigGui;
+import org.apache.jmeter.gui.GuiPackage;
 import org.apache.jmeter.gui.util.FileDialoger;
 import org.apache.jmeter.gui.util.HeaderAsPropertyRenderer;
 import org.apache.jmeter.gui.util.HorizontalPanel;
@@ -145,12 +131,6 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 
     private JTextField propertyPrefix;
     private JTextField attachmentsCT;
-    private JTextField attachmentsFirst;
-    private JTextField attachmentsLast;
-    private JTextField attachmentsFileNamePre;
-    private JTextField attachmentsFileNameSuf;
-    private JTextField attachmentsNamePre;
-    private JTextField attachmentsNameSuf;
     private JTextField folder;
     private JCheckBox setArgs;
     private JCheckBox SHA256;
@@ -161,7 +141,7 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
      * Create a new ArgumentsPanel as a standalone component.
      */
     public DynamicFilePanel() {
-        this(title, true, true);// $NON-NLS-1$
+        this(title, true, true);
     }
     /**
      * Create a new DynamicFilePanel as an embedded component, using the
@@ -223,19 +203,20 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
     }
 
     /**
-     * Save the GUI data in the DynamicMultiPartHttp element,
+     * Save the GUI data in the DynamicHttpPostSampler element,
      * if it is embedded and DynamicFiles element if it is standalone.
      *
-     * @param testElement {@link TestElement} to modify
+     * @see org.apache.jmeter.gui.JMeterGUIComponent#modifyTestElement(TestElement)
+     * @param testElement TestElement to modify
      */
     public void modifyTestElement(TestElement testElement) {
     	GuiUtils.stopTableEditing(table);
         @SuppressWarnings("unchecked") // we only put HTTPFileArgs in it
         Iterator<HTTPFileArg> modelData = (Iterator<HTTPFileArg>) tableModel.iterator();
         
-        if (testElement instanceof DynamicMultiPartHttp) {
+        if (testElement instanceof DynamicHttpPostSampler) {
         	int rows = tableModel.getRowCount();
-            DynamicMultiPartHttp base = (DynamicMultiPartHttp) testElement;
+            DynamicHttpPostSampler base = (DynamicHttpPostSampler) testElement;
             HTTPFileArg[] files = new HTTPFileArg[rows];
             int row=0;
             while (modelData.hasNext()) {
@@ -254,10 +235,7 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 
             base.setPropertyPrefix(propertyPrefix.getText());
             base.setAttachmentsCT(attachmentsCT.getText());
-            base.setAttachmentsNamePre(attachmentsNamePre.getText());
-            base.setAttachmentsNameSuf(attachmentsNameSuf.getText());
-            base.setAttachmentsFileNamePre(attachmentsFileNamePre.getText());
-            base.setAttachmentsFileNameSuf(attachmentsFileNameSuf.getText());
+            base.setRelativePath(folder.getText());
             base.setArgs(setArgs.isSelected());
             base.setSHA256(SHA256.isSelected());
             base.setSaveMethod(saveMethod.getText());
@@ -275,7 +253,7 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
             super.configureTestElement(testElement);
         }
         else
-        	log.warn("Using Panel for invalid TestElemet");
+        	log.warn("Using Panel for invalid TestElemet");// $NON-NLS-1$
     }
     
     /**
@@ -292,15 +270,15 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 
     /**
      * A newly created component can be initialized with the contents of a
-     * DynamicMultiPartHttp object by calling this method. The component is responsible for
+     * DynamicHttpPostSampler object by calling this method. The component is responsible for
      * querying the Test Element object for the relevant information to display
      * in its GUI.
      *
-     * @param testElement the DynamicMultiPartHttp to be used to configure the GUI
+     * @param testElement the DynamicHttpPostSampler to be used to configure the GUI
      */
     public void configure(TestElement testElement) {
-        if (testElement instanceof DynamicMultiPartHttp) {
-            DynamicMultiPartHttp base = (DynamicMultiPartHttp) testElement;
+        if (testElement instanceof DynamicHttpPostSampler) {
+            DynamicHttpPostSampler base = (DynamicHttpPostSampler) testElement;
             tableModel.clearData();
             for(HTTPFileArg file : base.getDynamicFiles()){
                 tableModel.addRow(file);
@@ -308,19 +286,15 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
             checkDeleteAndBrowseStatus();
         }
         else if (testElement instanceof DynamicFiles) {
-        	configureTestElement(testElement);
+        	super.configure(testElement);
         	DynamicFiles base = (DynamicFiles) testElement;
 
 	        propertyPrefix.setText(base.getPropertyPrefix());
 	        attachmentsCT.setText(base.getAttachmentsCT());
-	        attachmentsCT.setText(base.getAttachmentsCT());
-	        attachmentsNamePre.setText(base.getAttachmentsNamePre());
-	        attachmentsNameSuf.setText(base.getAttachmentsNameSuf());
-	        attachmentsFileNamePre.setText(base.getAttachmentsFileNamePre());
-	        attachmentsFileNameSuf.setText(base.getAttachmentsFileNameSuf());
+	        folder.setText(base.getRelativePath());
 	        setArgs.setSelected(base.getArgs());
 	        SHA256.setSelected(base.getSHA256());
-	        example.setText(propertyPrefix.getText() + "X(_Path || _ParamName || _MimeType || _SHA256)");
+	        example.setText(propertyPrefix.getText() + "X(_Path || _ParamName || _MimeType || _SHA256)");// $NON-NLS-1$
 	        saveMethod.setText(base.getSaveMethod());
 	        tableModel.clearData();
             for(HTTPFileArg file : base.asArray()){
@@ -329,7 +303,7 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
             checkDeleteAndBrowseStatus();
         }
         else
-        	log.warn("Using Panel for invalid TestElemet");
+        	log.warn("Using Panel for invalid TestElemet");// $NON-NLS-1$
     }
 
 
@@ -373,18 +347,12 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
      */
     private void initFields(){
     	if(standalone){
-	        propertyPrefix.setText("image_");
-	        attachmentsFirst.setText("1");
-	        attachmentsLast.setText("10");
-	        attachmentsCT.setText("image/jpeg");
-	        attachmentsNamePre.setText("image");
-	        attachmentsNameSuf.setText("");
-	        attachmentsFileNamePre.setText("image");
-	        attachmentsFileNameSuf.setText(".jpg");
+	        attachmentsCT.setText("image/jpeg");// $NON-NLS-1$
+	        folder.setText("");// $NON-NLS-1$
 	        SHA256.setSelected(true);
 	        setArgs.setSelected(true);
 	        saveMethod.setText(DynamicFiles.SAVE_METHOD_VAR);
-	        example.setText(propertyPrefix.getText() + "X");
+	        example.setText(propertyPrefix.getText() + "X");// $NON-NLS-1$
     	}
     }
     /**
@@ -412,26 +380,6 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 	    } else
 	    	runCommandOnSelectedFile(action);
     }
-
-    /**
-     * Filles the table with the file parameters from the import settings panel
-     */
-    private void importFiles() {
-
-        tableModel.clearData();
-        String folderPath = "";
-        if(!folder.getText().isEmpty())
-        	folderPath = folder.getText() + File.separator;
-        
-        for(int i = Integer.parseInt(attachmentsFirst.getText()); i <= Integer.parseInt(attachmentsLast.getText()); i++){
-        	HTTPFileArg file = new HTTPFileArg(folderPath + attachmentsFileNamePre.getText() + Integer.toString(i) + attachmentsFileNameSuf.getText(),
-												attachmentsNamePre.getText() +  Integer.toString(i) + attachmentsNameSuf.getText(),
-        										attachmentsCT.getText());
-            tableModel.addRow(file);
-        }
-        checkDeleteAndBrowseStatus();
-		
-	}
 	/**
      * runs specified command on currently selected file.
      *
@@ -503,6 +451,24 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
         int rowToSelect = tableModel.getRowCount() - 1;
         table.setRowSelectionInterval(rowToSelect, rowToSelect);
     }
+    /**
+     * Add a new file row to the table.
+     */
+    private void addFile(HTTPFileArg file) {
+        // If a table cell is being edited, we should accept the current value
+        // and stop the editing before adding a new row.
+        GuiUtils.stopTableEditing(table);
+
+        tableModel.addRow(file);
+
+        // Enable DELETE (which may already be enabled, but it won't hurt)
+        delete.setEnabled(true);
+        browse.setEnabled(true);
+
+        // Highlight (select) the appropriate row.
+        int rowToSelect = tableModel.getRowCount() - 1;
+        table.setRowSelectionInterval(rowToSelect, rowToSelect);
+    }
 
     /**
      * opens a dialog box to choose a file and returns selected file's
@@ -528,16 +494,54 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
      * @return a new File object of selected folder
      */
     private String browseAndGetFolderPath() {
-        String path = ""; //$NON-NLS-1$
-        JFileChooser chooser = FileDialoger.promptToOpenFile();
-        if (chooser != null) {
-            File file = chooser.getSelectedFile();
-            if (file != null) {
-                path = file.getParent();
-            }
+        String path = folder.getText();
+        if(path.isEmpty())
+        	path = FileDialoger.getLastJFCDirectory();
+        JFileChooser chooser = new JFileChooser(new File(path));
+
+        chooser.setDialogTitle("select folder");// $NON-NLS-1$
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setAcceptAllFileFilterUsed(false);
+        if (chooser.showOpenDialog(GuiPackage.getInstance().getMainFrame()) == JFileChooser.APPROVE_OPTION) {
+                path = chooser.getSelectedFile().getAbsolutePath();
+                FileDialoger.setLastJFCDirectory(path);
         }
         return path;
     }
+
+    /**
+     * Fills the table with the file parameters from the import settings panel
+     */
+    private void importFiles() {
+    	String relPath = folder.getText();
+    	String replace = relPath + File.separator;
+	    if(relPath.isEmpty()){
+	    	relPath = FileDialoger.getLastJFCDirectory();
+	    	replace = "";
+	    }
+	    
+        JFileChooser chooser = new JFileChooser(new File(relPath));
+        chooser.setMultiSelectionEnabled(true);
+        chooser.setDialogTitle("select files");// $NON-NLS-1$
+
+        if (chooser.showOpenDialog(GuiPackage.getInstance().getMainFrame()) == JFileChooser.APPROVE_OPTION) {
+            File[] files = chooser.getSelectedFiles();
+            for(File file : files){
+            	String path=file.getAbsolutePath().replace(replace, "");
+            	String name = file.getName();
+            	int last = name.lastIndexOf(".");
+            	if(last!=-1)
+            		name = name.substring(0, last);
+            			
+            	HTTPFileArg hFile = new HTTPFileArg(path,name,
+										attachmentsCT.getText());
+
+            	addFile(hFile);			
+            }
+            FileDialoger.setLastJFCDirectory(files[0].getAbsolutePath());
+        }
+		
+	}
 
     /**
      * Cancel cell editing if it is being edited
@@ -595,42 +599,6 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
     protected void stopTableEditing() {
         GuiUtils.stopTableEditing(table);
     }
-    /**
-     * Create the main GUI panel which contains the file table.
-     *
-     * @return the main GUI panel
-     */
-    private JPanel makeMainPanel() {
-    	JPanel mainPanel = new JPanel(new BorderLayout(0, 5));
-
-    	if(standalone){
-    		mainPanel.add(makeSettingsPanel(),BorderLayout.NORTH);
-    	}else{
-    		mainPanel.add(makeLabelPanel(),BorderLayout.NORTH);
-    	}
-    		
-        initializeTableModel();
-        table = new JTable(tableModel);
-        table.getTableHeader().setDefaultRenderer(new HeaderAsPropertyRenderer());
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        mainPanel.add(makeScrollPane(table),BorderLayout.CENTER);
-        mainPanel.add(Box.createVerticalStrut(70), BorderLayout.WEST);
-        mainPanel.add(makeButtonPanel(),BorderLayout.SOUTH);
-        
-        return mainPanel;
-    }
-    
-    /**
-     * Create a panel containing the title label for the table.
-     *
-     * @return a panel containing the title label
-     */
-    private Component makeLabelPanel() {
-        JPanel labelPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        labelPanel.add(tableLabel);
-        return labelPanel;
-    }
 
     
     /**
@@ -638,12 +606,12 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
      *
      * @return a panel all settings
      */
-    private JPanel makeSettingsPanel(){
+    protected JPanel makeSettingsPanel(){
 
         JPanel settingsPanel = new VerticalPanel();       
  
         propertyPrefix = new JTextField(10);
-        settingsPanel.add(getInputPanel(propertyPrefix, "Prefix:"));
+        settingsPanel.add(StaigerUtils.getInputPanel("Prefix:", propertyPrefix));// $NON-NLS-1$
         settingsPanel.add(getExamplePanel());
         settingsPanel.add(getOptionsPanel()); 
         
@@ -652,7 +620,7 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 
     
     /**
-     * Create a panel containing the save method selection and an example of the var/prop syntax.
+     * Create a panel containing the save method selection and an example of the var/prop format.
      *
      * @return a panel containing further settings
      */
@@ -665,9 +633,9 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
         saveMethod = new JLabeledChoice("Save Method:",
         				new String[]{DynamicFiles.SAVE_METHOD_PROP, DynamicFiles.SAVE_METHOD_VAR});
         saveMethod.setToolTipText("Property - makes file available above Thread Groups\t"
-        						+ "Variable - set for every Thread user in this Thread Context");
+        						+ "Variable - set for every Thread user in this Thread Context");// $NON-NLS-1$
         
-        panel.add(getInputPanel(example, "prop/var enumeration:"));
+        panel.add(StaigerUtils.getInputPanel("prop/var enumeration:", example));// $NON-NLS-1$
         panel.add(saveMethod);        
         
         return panel;
@@ -682,13 +650,42 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 
         JPanel optionsPanel = new HorizontalPanel();  
 
-        setArgs = new JCheckBox("Export File Parameters:");
-        SHA256 = new JCheckBox("Export SHA256 Hash:");
+        setArgs = new JCheckBox("Export File Parameters:");// $NON-NLS-1$
+        setArgs.setFont(null);
+        SHA256 = new JCheckBox("Export SHA256 Hash:");// $NON-NLS-1$
+        SHA256.setFont(null);
         
         optionsPanel.add(setArgs);
         optionsPanel.add(SHA256);
         
         return optionsPanel;
+    }
+    
+    
+    /**
+     * Create the main GUI panel which contains the file table and control buttons.
+     *
+     * @return the main GUI panel
+     */
+    protected JPanel makeFilePanel() {
+    	JPanel mainPanel = new JPanel(new BorderLayout(0, 5));
+
+    	if(standalone){
+    		mainPanel.add(makeSettingsPanel(),BorderLayout.NORTH);
+    	}else{
+    		mainPanel.add(StaigerUtils.makeLabelPanel(tableLabel),BorderLayout.NORTH);
+    	}
+    		
+        initializeTableModel();
+        table = new JTable(tableModel);
+        table.getTableHeader().setDefaultRenderer(new HeaderAsPropertyRenderer());
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        mainPanel.add(StaigerUtils.makeScrollPanel(table),BorderLayout.CENTER);
+        mainPanel.add(Box.createVerticalStrut(70), BorderLayout.WEST);
+        mainPanel.add(makeButtonPanel(),BorderLayout.SOUTH);
+        
+        return mainPanel;
     }
 
     /**
@@ -696,93 +693,41 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
      *
      * @return a panel containing the import options.
      */
-    private JPanel makeImportPanel(){
+    protected JPanel makeImportPanel(){
     	
         JPanel importPanel = new JPanel(new BorderLayout());
         
-        importPanel.setBorder(BorderFactory.createTitledBorder("Import Files:"));
+        importPanel.setBorder(BorderFactory.createTitledBorder("Import Files:"));// $NON-NLS-1$
 
-        importBtn = new JButton("import"); // $NON-NLS-1$
+        importBtn = new JButton("Add multiple"); // $NON-NLS-1$
         importBtn.setActionCommand(IMPORT);
         importBtn.addActionListener(this);
 
-        importPanel.add(getImportFields(), BorderLayout.NORTH);
+        importPanel.add(getImportInfo(), BorderLayout.NORTH);
         importPanel.add(importBtn, BorderLayout.SOUTH);
         
-        importPanel.setToolTipText("leave Empty for relative path to ${base.dir}");
         return importPanel;
     }
     /**
-     * Create a panel containing all import options.
-     *
-     * @return a panel containing all import options.
-     */
-    private JPanel getImportFields(){
-    	
-        JPanel importFields = new HorizontalPanel();
-
-        importFields.add(getSourceFiles());
-        importFields.add(getParameterInfos());
-        
-        return importFields;
-    }
-    /**
-     * Create a panel containing the source files parameters.
+     * Create a panel containing the source files Mime-Type and relative path.
      *
      * @return a panel containing the source files parameters.
      */
-    private JPanel getSourceFiles(){
-	    JPanel panel = new VerticalPanel();
+    private JPanel getImportInfo(){
+	    JPanel panel = new HorizontalPanel();
 	    panel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(),"Source:")); // $NON-NLS-1$
 
-	    attachmentsFileNamePre = new JTextField(10);
-	    attachmentsFileNameSuf = new JTextField(10);
-	    attachmentsFirst = new JTextField(10);
-	    attachmentsLast = new JTextField(10);
-	    panel.add(getFolder());
-	    panel.add(getInputPanel(attachmentsFileNamePre, "Filename Prefix:"));
-	    panel.add(getInputPanel(attachmentsFileNameSuf, "Filename Suffix:"));
-	    panel.add(getInputPanel(attachmentsFirst, "First file number:"));
-	    panel.add(getInputPanel(attachmentsLast, "Last file number:"));
-	    return panel;
-    }
-    /**
-     * Create a panel containing the files parameters.
-     *
-     * @return a panel containing the files parameters.
-     */
-    private JPanel getParameterInfos(){
-	    JPanel panel = new VerticalPanel();
-	    panel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(),"Parameters:")); // $NON-NLS-1$
-
-	    attachmentsNamePre = new JTextField(10);
-	    attachmentsNameSuf = new JTextField(10);
 	    attachmentsCT = new JTextField(10);
-	    panel.add(getInputPanel(attachmentsNamePre, "Filename Prefix:"));
-	    panel.add(getInputPanel(attachmentsNameSuf, "Filename Suffix:"));
-	    panel.add(getInputPanel(attachmentsCT, "MIME Type:"));
-	    return panel;
-    }
-    /**
-     * Create a panel containing the folder field and browse button.
-     *
-     * @return a panel containing the folder field and browse button.
-     */
-    private JPanel getFolder() {
         folder = new JTextField(10);
-
-        JLabel label = new JLabel("Folder:"); // $NON-NLS-1$
-        label.setLabelFor(folder);
+	    folder.setToolTipText("leave Empty for relative path to ${base.dir}");// $NON-NLS-1$
         browseFolder = new JButton("Browse"); // $NON-NLS-1$
         browseFolder.setActionCommand(BROWSE_IMPORT_PATH);
         browseFolder.addActionListener(this);
-
-        JPanel panel = new JPanel(new BorderLayout(5, 0));
-        panel.add(label, BorderLayout.WEST);
-        panel.add(folder, BorderLayout.CENTER);
-        panel.add(browseFolder, BorderLayout.EAST);
-
-        return panel;
+	    
+        panel.add(StaigerUtils.getInputPanel("MIME Type:", attachmentsCT));// $NON-NLS-1$
+	    panel.add(StaigerUtils.getInputPanel("set Path Relative to:", folder, browseFolder));// $NON-NLS-1$
+	    
+	    return panel;
     }
 
     /**
@@ -843,8 +788,7 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
 
         p.setLayout(new BorderLayout());
 
-        //p.add(makeLabelPanel(), BorderLayout.NORTH);
-        p.add(makeMainPanel(), BorderLayout.CENTER);
+        p.add(makeFilePanel(), BorderLayout.CENTER);
         // Force a minimum table height of 100 pixels
         p.add(Box.createVerticalStrut(100), BorderLayout.WEST);
 
@@ -858,31 +802,13 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
         sizeColumns(table);
 
     }
-    
-    /**
-     * Utility function to create a Panel, which contains the given @TextField and a label
-     * @param field the @TextField which is to be embedded.
-     * @param labelName @String for the Label of the text field.
-     * @return the @JPanel with the labeld field.
-     */
-    protected JPanel getInputPanel(JComponent field, String labelName) {
-        JLabel label = new JLabel(labelName); // $NON-NLS-1$
-        label.setLabelFor(field);
-
-        JPanel panel = new JPanel(new BorderLayout(5, 0));
-        panel.add(label, BorderLayout.WEST);
-        panel.add(field, BorderLayout.CENTER);
-
-        return panel;
-    }
-
-	@Override
-	public String getLabelResource() {
-		return title;
-	}
 	
 	@Override
 	public String getStaticLabel() {
 		return title;
 	}
+    @Override
+    public String getLabelResource() {
+    	return this.getClass().getSimpleName();
+    }
 }

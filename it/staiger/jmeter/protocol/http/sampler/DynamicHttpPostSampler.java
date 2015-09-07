@@ -1,8 +1,12 @@
+/*
+ * @@@LICENSE
+ *
+ */
+
 package it.staiger.jmeter.protocol.http.sampler;
-//package org.apache.jmeter.protocol.http.sampler;
 
 import it.staiger.jmeter.protocol.http.config.DynamicFiles;
-import it.staiger.jmeter.protocol.http.sampler.HTTPHC4DynFiles;
+import it.staiger.jmeter.protocol.http.sampler.HTTPHC4DynamicFilePost;
 import it.staiger.jmeter.protocol.http.util.VariableFileArgs;
 import it.staiger.jmeter.protocol.http.util.VariableFileArg;
 
@@ -27,8 +31,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-
-public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptible {
+public class DynamicHttpPostSampler extends HTTPSamplerBase implements Interruptible {
 	private static final long serialVersionUID = 240L;
 	
     @SuppressWarnings("unused")
@@ -54,10 +57,10 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
             Arrays.asList(new String[]{
                     "it.staiger.jmeter.protocol.http.config.gui.DynamicFilePanel"}));
 
-    private final transient HTTPHC4DynFiles hc;
+    private final transient HTTPHC4DynamicFilePost hc;
     
-    public DynamicMultiPartHttp(){
-        hc = new HTTPHC4DynFiles(this);
+    public DynamicHttpPostSampler(){
+        hc = new HTTPHC4DynamicFilePost(this);
     }
 
     @Override
@@ -71,28 +74,25 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
     @Override
     public SampleResult sample(Entry e) {
     	
-    	URL endpoint = null;
-    	
     	setMethod(HTTPConstants.POST);
     	setDoMultipartPost(true);
 
     	//set correct Endpoint
         try{
-	    	if(getRecordType()<getRecordType())
-	    		endpoint = new URL(getEndpoint1());
-	    	else{
-	    		endpoint = new URL(getEndpoint2());
-	    	}
+	    	//give to HTTPClient for execution
+	    	return sample(getUrl(), HTTPConstants.POST, false, 0);
         }catch(MalformedURLException ex){
-        	ex.getMessage();
+        	HTTPSampleResult result = new HTTPSampleResult();
+        	result.sampleStart();
+        	result.sampleEnd();
+            errorResult(ex, result);
+        	return result;
         }
 
-    	//give to HTTPClient for execution
-    	return sample(endpoint, HTTPConstants.POST, false, 0);
     }
 
     /**
-     * Executes POSt in class {@link HTTPHC4DynFiles}.
+     * Executes POSt in class {@link HTTPHC4DynamicFilePost}.
      */
     @Override
     protected HTTPSampleResult sample(URL u, String method,
@@ -101,7 +101,21 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
     }
     
 
-    /*
+
+    /**
+     * @return The URL to be requested by this sampler.
+     * @throws MalformedURLException if url is malformed
+     */
+     @Override
+     public URL getUrl() throws MalformedURLException {
+     	if(getRecordType()<getThreshold())
+     		return new URL(getEndpoint1());
+     	else{
+     		return new URL(getEndpoint2());
+     	}
+     }
+     
+    /**
      * Method to set files list to be uploaded.
      *
      * @param value
@@ -115,7 +129,7 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
         }
     }
 
-    /*
+    /**
      * Method to get files list to be uploaded.
      */
     private VariableFileArgs getVariableFileArgs() {
@@ -160,7 +174,7 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
         setVariableFileArgs(fileArgs);
     }   
 
-    /*
+    /**
      * Method to set files list to be uploaded.
      *
      * @param value
@@ -174,7 +188,7 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
         }
     }
 
-    /*
+    /**
      * Method to get files list to be uploaded.
      */
     private HTTPFileArgs getDynamicFileArgs() {
@@ -228,7 +242,7 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
         }
     }
 
-    /**
+    /*
      * Setters
      */
 
@@ -280,7 +294,7 @@ public class DynamicMultiPartHttp extends HTTPSamplerBase implements Interruptib
         setProperty(DYNAMIC_THRESHOLD, selected);
     }
 
-    /**
+    /*
      * Getters
      */
     public String getEndpoint1() {

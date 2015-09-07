@@ -1,18 +1,5 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @@@LICENSE
  *
  */
 
@@ -45,7 +32,7 @@ import org.apache.log.Logger;
  * A set of HTTPFileArg objects.
  *
  */
-public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIterationListener, NoThreadClone {
+public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIterationListener {
 
     private static final long serialVersionUID = 240L;
     
@@ -54,18 +41,14 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
     
     public static final String PROPERTY_PREFIX = "DyanmicFiles.PROPERTY_PREFIX";
     public static final String ATTACHMENTS_CT = "DyanmicFiles.ATTACHMENTS_CT";
-    public static final String ATTACHMENTS_FIRST = "DyanmicFiles.FIRST";
-    public static final String ATTACHMENTS_LAST = "DyanmicFiles.LAST";
     public static final String ATTACHMENTS_PATH = "DyanmicFiles.ATTACHMENTS_PATH";
-    public static final String ATTACHMENTS_NAME_PRE = "DyanmicFiles.ATTACHMENTS_NAME_PRE";
-    public static final String ATTACHMENTS_NAME_SUF = "DyanmicFiles.ATTACHMENTS_NAME_SUF";
-    public static final String ATTACHMENTS_FILENAME_PRE = "DyanmicFiles.ATTACHMENTS_FILENAME_PRE";
-    public static final String ATTACHMENTS_FILENAME_SUF = "DyanmicFiles.ATTACHMENTS_FILENAME_SUF";
     public static final String SET_SHA256 = "DyanmicFiles.SET_SHA256";
     public static final String SET_ARGS = "DyanmicFiles.SET_ARGS";
     public static final String SAVE_METHOD = "DyanmicFiles.SAVE_METHOD";
     public static final String SAVE_METHOD_PROP = "Property";
     public static final String SAVE_METHOD_VAR = "Variable";
+    
+    boolean firstIteration=true;
 
     /**
      * Create a new HTTPFileArgs object with no files.
@@ -78,6 +61,7 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
      * saves the files, depending on the selection, into
      * variables in the config elements thread context or
      * in global properties
+     * only done once at first run of Thread, as Files should not change in-between!
      */
 	@Override
 	public void iterationStart(LoopIterationEvent iterEvent) {
@@ -85,20 +69,18 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
 		int i = 1;
 		
         PropertyIterator iter = getHTTPFileArgsCollection().iterator();
-        while (iter.hasNext()) {
+        while (getArgs() && firstIteration==true && iter.hasNext()) {
             HTTPFileArg fileArg = (HTTPFileArg) iter.next().getObjectValue();
-            String name = getAttachmentsNamePre() + Integer.toString(i++) + getAttachmentsNameSuf();
+            String name = getPropertyPrefix() + Integer.toString(i++);
             
             /*
              * switch case not possible because compared cases are not constant strings
              */
             switch(getSaveMethod()){
             case SAVE_METHOD_PROP:
-	                if(getArgs()){
-	                	JMeterUtils.setProperty(name + "_Path", fileArg.getPath());
-	                	JMeterUtils.setProperty(name + "_ParamName", fileArg.getParamName());
-	                	JMeterUtils.setProperty(name + "_MimeType", fileArg.getMimeType());
-	                }
+                	JMeterUtils.setProperty(name + "_Path", fileArg.getPath());
+                	JMeterUtils.setProperty(name + "_ParamName", fileArg.getParamName());
+                	JMeterUtils.setProperty(name + "_MimeType", fileArg.getMimeType());
 	                
 	    			if(getSHA256()){
 	    				JMeterUtils.setProperty(name + "_SHA256", FileContentServer.getServer().getSHA256(fileArg.getPath()));
@@ -108,21 +90,21 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
 	                final JMeterContext context = getThreadContext();
 	                JMeterVariables threadVars = context.getVariables();
 	                
-	                if(getArgs()){
-	                	threadVars.put(name + "_Path", fileArg.getPath());
-	                	threadVars.put(name + "_ParamName", fileArg.getParamName());
-	                	threadVars.put(name + "_MimeType", fileArg.getMimeType());
-	                }
+                	threadVars.put(name + "_Path", fileArg.getPath());
+                	threadVars.put(name + "_ParamName", fileArg.getParamName());
+                	threadVars.put(name + "_MimeType", fileArg.getMimeType());
 	                
 	    			if(getSHA256()){
 	    				threadVars.put(name + "_SHA256", FileContentServer.getServer().getSHA256(fileArg.getPath()));
 	    			}
+	    			break;
             default:
 	    			log.error("Invalid save method: " + getSaveMethod());
 	    			break;
             }// end of if
         }// end of while loop
 		
+        firstIteration=false;
 	}// end of method
 	
 	/*
@@ -154,7 +136,7 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
 	/**
 	 * Utility function to ensure, that the property name does not contain blanks.
 	 * If it does, they will be replaced by underscores.
-	 * @param text
+	 * @param text Prefix which is to be set and checked for blanks first.
 	 */
     public void setPropertyPrefix(String text) {
     	if(text.contains(" ")){
@@ -164,32 +146,8 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
         setProperty(PROPERTY_PREFIX, text);
     }
 
-    public void setAttachmentsFirst(String text) {
-        setProperty(ATTACHMENTS_FIRST, text);
-    }
-
-    public void setAttachmentsLast(String text) {
-        setProperty(ATTACHMENTS_LAST, text);
-    }
-
     public void setAttachmentsCT(String text) {
         setProperty(ATTACHMENTS_CT, text);
-    }
-
-    public void setAttachmentsNamePre(String text) {
-        setProperty(ATTACHMENTS_NAME_PRE, text);
-    }
-
-    public void setAttachmentsNameSuf(String text) {
-        setProperty(ATTACHMENTS_NAME_SUF, text);
-    }
-
-    public void setAttachmentsFileNamePre(String text) {
-        setProperty(ATTACHMENTS_FILENAME_PRE, text);
-    }
-
-    public void setAttachmentsFileNameSuf(String text) {
-        setProperty(ATTACHMENTS_FILENAME_SUF, text);
     }
 
     public void setSaveMethod(String text) {
@@ -204,6 +162,11 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
         setProperty(SET_ARGS, text);
     }
     
+    public void setRelativePath(String text) {
+        setProperty(ATTACHMENTS_PATH, text);
+    }
+    
+    
     /*
      * Getters
      */
@@ -212,32 +175,12 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
         return getPropertyAsString(PROPERTY_PREFIX);
     }
 
-    public int getAttachmentsFirst() {
-        return getPropertyAsInt(ATTACHMENTS_FIRST);
-    }
-
-    public int getAttachmentsLast() {
-        return getPropertyAsInt(ATTACHMENTS_LAST);
-    }
-
     public String getAttachmentsCT() {
         return getPropertyAsString(ATTACHMENTS_CT);
     }
 
-    public String getAttachmentsNamePre() {
-        return getPropertyAsString(ATTACHMENTS_NAME_PRE);
-    }
-
-    public String getAttachmentsNameSuf() {
-        return getPropertyAsString(ATTACHMENTS_NAME_SUF);
-    }
-
-    public String getAttachmentsFileNamePre() {
-        return getPropertyAsString(ATTACHMENTS_FILENAME_PRE);
-    }
-
-    public String getAttachmentsFileNameSuf() {
-        return getPropertyAsString(ATTACHMENTS_FILENAME_SUF);
+    public String getRelativePath() {
+        return getPropertyAsString(ATTACHMENTS_PATH);
     }
 
     public String getSaveMethod() {

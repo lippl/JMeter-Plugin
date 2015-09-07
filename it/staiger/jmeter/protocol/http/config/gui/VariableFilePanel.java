@@ -1,18 +1,5 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @@@LICENSE
  *
  */
 
@@ -30,15 +17,15 @@ import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.table.TableCellEditor;
 
 import org.apache.jmeter.gui.util.HeaderAsPropertyRenderer;
 
-import it.staiger.jmeter.protocol.http.sampler.DynamicMultiPartHttp;
+import it.staiger.jmeter.protocol.http.sampler.DynamicHttpPostSampler;
 import it.staiger.jmeter.protocol.http.util.VariableFileArg;
+import it.staiger.jmeter.util.gui.StaigerUtils;
 
 import org.apache.jmeter.testelement.TestElement;
 import org.apache.jmeter.util.JMeterUtils;
@@ -79,9 +66,9 @@ public class VariableFilePanel extends JPanel implements ActionListener {
     /** Command for removing a row from the table. */
     private static final String DELETE = "delete"; // $NON-NLS-1$
 
-    private static final String CONTENT = "send_content_label:";//"send_content_label"; // $NON-NLS-1$
+    private static final String CONTENT = "jms_msg_content";//"send_content_label"; // $NON-NLS-1$
     
-    private static final String FILENAME = "send_file_name_label:"; //"send_file_name_label"; // $NON-NLS-1$
+    private static final String FILENAME = "filename"; //"send_file_name_label"; // $NON-NLS-1$
 
     /** The parameter name column title of file table. */
     private static final String PARAMNAME = "send_file_param_name_label"; //$NON-NLS-1$
@@ -144,14 +131,15 @@ public class VariableFilePanel extends JPanel implements ActionListener {
     }
 
     /**
-     * Save the GUI data in the DynamicMultiPartHttp element.
+     * Save the GUI data in the DynamicHttpPostSampler element.
      *
-     * @param testElement {@link TestElement} to modify
+     * @see org.apache.jmeter.gui.JMeterGUIComponent#modifyTestElement(TestElement)
+     * @param testElement TestElement} to modify
      */
     public void modifyTestElement(TestElement testElement) {
         GuiUtils.stopTableEditing(table);
-        if (testElement instanceof DynamicMultiPartHttp) {
-            DynamicMultiPartHttp base = (DynamicMultiPartHttp) testElement;
+        if (testElement instanceof DynamicHttpPostSampler) {
+            DynamicHttpPostSampler base = (DynamicHttpPostSampler) testElement;
             int rows = tableModel.getRowCount();
             @SuppressWarnings("unchecked") // we only put VariableFileArgs in it
             Iterator<VariableFileArg> modelData = (Iterator<VariableFileArg>) tableModel.iterator();
@@ -167,15 +155,15 @@ public class VariableFilePanel extends JPanel implements ActionListener {
 
     /**
      * A newly created component can be initialized with the contents of a
-     * DynamicMultiPartHttp object by calling this method. The component is responsible for
+     * DynamicHttpPostSampler object by calling this method. The component is responsible for
      * querying the Test Element object for the relevant information to display
      * in its GUI.
      *
-     * @param testElement the DynamicMultiPartHttp to be used to configure the GUI
+     * @param testElement the DynamicHttpPostSampler to be used to configure the GUI
      */
     public void configure(TestElement testElement) {
-        if (testElement instanceof DynamicMultiPartHttp) {
-            DynamicMultiPartHttp base = (DynamicMultiPartHttp) testElement;
+        if (testElement instanceof DynamicHttpPostSampler) {
+            DynamicHttpPostSampler base = (DynamicHttpPostSampler) testElement;
             tableModel.clearData();
             for(VariableFileArg file : base.getVariableFiles()){
                 tableModel.addRow(file);
@@ -309,18 +297,7 @@ public class VariableFilePanel extends JPanel implements ActionListener {
         table = new JTable(tableModel);
         table.getTableHeader().setDefaultRenderer(new HeaderAsPropertyRenderer());
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        return makeScrollPane(table);
-    }
-
-    /**
-     * Create a panel containing the title label for the table.
-     *
-     * @return a panel containing the title label
-     */
-    private Component makeLabelPanel() {
-        JPanel labelPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        labelPanel.add(tableLabel);
-        return labelPanel;
+        return StaigerUtils.makeScrollPanel(table);
     }
 
     /**
@@ -355,7 +332,7 @@ public class VariableFilePanel extends JPanel implements ActionListener {
 
         p.setLayout(new BorderLayout());
 
-        p.add(makeLabelPanel(), BorderLayout.NORTH);
+        p.add(StaigerUtils.makeLabelPanel(tableLabel), BorderLayout.NORTH);
         p.add(makeMainPanel(), BorderLayout.CENTER);
         // Force a minimum table height of 70 pixels
         p.add(Box.createVerticalStrut(70), BorderLayout.WEST);
@@ -363,11 +340,5 @@ public class VariableFilePanel extends JPanel implements ActionListener {
 
         table.revalidate();
         sizeColumns(table);
-    }
-
-    private JScrollPane makeScrollPane(Component comp) {
-        JScrollPane pane = new JScrollPane(comp);
-        pane.setPreferredSize(pane.getMinimumSize());
-        return pane;
     }
 }
