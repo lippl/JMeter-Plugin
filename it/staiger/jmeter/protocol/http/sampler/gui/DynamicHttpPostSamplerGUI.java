@@ -170,19 +170,19 @@ public class DynamicHttpPostSamplerGUI extends AbstractSamplerGui{
      * Initializes all fields and boxes. Is called by {@link #init()} on Panel creation and clearing.
      */
     private void initFields() {
-        ep1.setText("http://${host}:${port}${path_statistic}");// $NON-NLS-1$
-        ep2.setText("http://${host}:${port}${path_enforcement}");// $NON-NLS-1$
-        connTimeout.setText("10000");// $NON-NLS-1$
-        respTimeout.setText("10000");// $NON-NLS-1$
-        recordtype.setText("${recordtype}");// $NON-NLS-1$
-        threshold.setText("2");// $NON-NLS-1$
-        keepAlive.setSelected(true);
+        ep1.setText("");// $NON-NLS-1$
+        ep2.setText("");// $NON-NLS-1$
+        connTimeout.setText("");// $NON-NLS-1$
+        respTimeout.setText("");// $NON-NLS-1$
+        recordtype.setText("");// $NON-NLS-1$
+        threshold.setText("");// $NON-NLS-1$
+        keepAlive.setSelected(false);
         logFiles.setSelected(false);
         blockMerge.setSelected(false);
         staticThreshold.setSelected(false);
         variableThreshold.setSelected(false);
-        dynamicThreshold.setSelected(true);
-        attachmentNumbers.setText("${images}");// $NON-NLS-1$
+        dynamicThreshold.setSelected(false);
+        attachmentNumbers.setText("");// $NON-NLS-1$
     }
 
 

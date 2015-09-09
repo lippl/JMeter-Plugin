@@ -347,10 +347,10 @@ public class DynamicFilePanel extends AbstractConfigGui implements ActionListene
      */
     private void initFields(){
     	if(standalone){
-	        attachmentsCT.setText("image/jpeg");// $NON-NLS-1$
+	        attachmentsCT.setText("");// $NON-NLS-1$
 	        folder.setText("");// $NON-NLS-1$
-	        SHA256.setSelected(true);
-	        setArgs.setSelected(true);
+	        SHA256.setSelected(false);
+	        setArgs.setSelected(false);
 	        saveMethod.setText(DynamicFiles.SAVE_METHOD_VAR);
 	        example.setText(propertyPrefix.getText() + "X");// $NON-NLS-1$
     	}
