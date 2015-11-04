@@ -58,12 +58,43 @@ public abstract class StaigerUtils {
 
 
     /**
-     * Utility function to add a Component into a new scrollabel panel
-     * @param comp component which is to be added to the panel. 
-     * @return a panel containing the title label
+     * Create a scroll panel that sets it's preferred size to it's minimum size.
+     * Explicitly for scroll panes that live inside other scroll panes, or
+     * within containers that stretch components to fill the area they exist in.
+     * Use this for any component you would put in a scroll pane (such as
+     * TextAreas, tables, JLists, etc). It is here for convenience and to avoid
+     * duplicate code. JMeter displays best if you follow this custom.
+     *
+     * @param comp
+     *            the component which should be placed inside the scroll pane
+     * @return a JScrollPane containing the specified component
      */
     public static JScrollPane makeScrollPanel(Component comp) {
         JScrollPane pane = new JScrollPane(comp);
+        pane.setPreferredSize(pane.getMinimumSize());
+        return pane;
+    }
+
+    /**
+     * Create a scroll panel that sets it's preferred size to it's minimum size.
+     * Explicitly for scroll panes that live inside other scroll panes, or
+     * within containers that stretch components to fill the area they exist in.
+     * Use this for any component you would put in a scroll pane (such as
+     * TextAreas, tables, JLists, etc). It is here for convenience and to avoid
+     * duplicate code. JMeter displays best if you follow this custom.
+     *
+     * @see javax.swing.ScrollPaneConstants
+     *
+     * @param comp
+     *            the component which should be placed inside the scroll pane
+     * @param verticalPolicy
+     *            the vertical scroll policy
+     * @param horizontalPolicy
+     *            the horizontal scroll policy
+     * @return a JScrollPane containing the specified component
+     */
+    public static JScrollPane makeScrollPanel(Component comp, int verticalPolicy, int horizontalPolicy) {
+        JScrollPane pane = new JScrollPane(comp, verticalPolicy, horizontalPolicy);
         pane.setPreferredSize(pane.getMinimumSize());
         return pane;
     }

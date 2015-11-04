@@ -47,8 +47,6 @@ public class DynamicHttpPostSamplerGUI extends AbstractSamplerGui{
 
 	@SuppressWarnings("unused")
 	private static final Logger log = LoggingManager.getLoggerForClass();
-	
-	boolean useArgPanel;
 
     // Tabbed pane that contains parameters and raw body
     private JTabbedPane tabbedPane;

@@ -39,7 +39,7 @@ public class DynamicFiles extends HTTPFileArgs implements Serializable, LoopIter
     public static final String SAVE_METHOD_PROP = "Property";
     public static final String SAVE_METHOD_VAR = "Variable";
     
-    boolean firstIteration=true;
+    private boolean firstIteration=true;
 
     /**
      * Create a new HTTPFileArgs object with no files.

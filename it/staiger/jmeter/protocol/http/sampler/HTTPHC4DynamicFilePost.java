@@ -747,6 +747,17 @@ public class HTTPHC4DynamicFilePost extends HTTPHC4Impl {
         ViewableByteBody[] viewableByteBodies = new ViewableByteBody[variableFiles.length+staticFiles.length+dynFiles.length];
 
         int i = 0;
+        
+        //Variable Files
+        if(!testElement.getVariableThreshold() || thresholdCheck)
+	        for(int j = 0; j < variableFiles.length; j++, i++) {
+	        	VariableFileArg file = variableFiles[j];
+	            
+	            viewableByteBodies[i] = new ViewableByteBody(file.getContent().getBytes(), file.getMimeType(), file.getName());
+	            multiPart.addPart(file.getParamName(),viewableByteBodies[i]);
+	            hasContent = true;
+	        }
+        
         //Static Files
         if(!testElement.getStaticThreshold() || thresholdCheck)
 	        for (i=0; i < staticFiles.length; i++) { 
@@ -776,16 +787,6 @@ public class HTTPHC4DynamicFilePost extends HTTPHC4Impl {
 	            hasContent = true;
 	        }
         }
-        
-        //Variable Files
-        if(!testElement.getVariableThreshold() || thresholdCheck)
-	        for(int j = 0; j < variableFiles.length; j++, i++) {
-	        	VariableFileArg file = variableFiles[j];
-	            
-	            viewableByteBodies[i] = new ViewableByteBody(file.getContent().getBytes(), file.getMimeType(), file.getName());
-	            multiPart.addPart(file.getParamName(),viewableByteBodies[i]);
-	            hasContent = true;
-	        }
         
         post.setEntity(multiPart);
         if(!hasContent)
